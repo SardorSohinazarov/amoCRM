@@ -11,14 +11,14 @@ namespace Kommo_Client
 
         public DbSet<Order> Orders { get; set; }
 
-        //protected override void OnModelCreating(ModelBuilder modelBuilder)
-        //{
-        //    base.OnModelCreating(modelBuilder);
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
 
-        //    modelBuilder.Entity<Order>()
-        //        .HasIndex()
-        //        .IsUnique();
-        //}
+            modelBuilder.Entity<Order>()
+                .HasIndex(x => x.LeadId)
+                .IsUnique();
+        }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

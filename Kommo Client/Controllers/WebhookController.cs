@@ -69,19 +69,19 @@ namespace Kommo_Client.Controllers
 
         private async Task UpdateLeadAsync(List<Update> updates, CancellationToken cancellationToken)
         {
-            var pipelines = await _kommoClient.GetPipelinesAsync(cancellationToken);
-            Console.WriteLine(JsonSerializer.Serialize(pipelines.Select(x => new {x.id, x.name})));
+            var statuses = await _kommoClient.GetStatusAsync(cancellationToken);
+            Console.WriteLine(JsonSerializer.Serialize(statuses.Select(x => new {x.id, x.name})));
             foreach (var update in updates)
             {
                 Console.WriteLine(update.status_id);
 
-                var pipeLine = pipelines
+                var status = statuses
                     .FirstOrDefault(p => p.id == long.Parse(update.status_id));
 
-                if(pipeLine is null)
+                if(status is null)
                     return;
 
-                Console.WriteLine($"Status:{pipeLine.name}");
+                Console.WriteLine($"Status:{status.name}");
 
                 var order = await _dbContext.Orders
                     .FirstOrDefaultAsync(l => l.LeadId == long.Parse(update.id), cancellationToken);
@@ -89,7 +89,7 @@ namespace Kommo_Client.Controllers
                 if(order is null)
                     return;
 
-                if (Enum.TryParse(typeof(EOrderStatus), pipeLine.name, out object newStatus))
+                if (Enum.TryParse(typeof(EOrderStatus), status.name, out object newStatus))
                 {
                     order.Status = (EOrderStatus)newStatus;
 

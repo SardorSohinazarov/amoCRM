@@ -73,7 +73,7 @@ public sealed class KommoClient : IDisposable
         return JsonSerializer.Deserialize<UpdateLeadResponse>(responseContent);
     }
 
-    public async Task<List<Status>> GetPipelinesAsync(CancellationToken cancellationToken = default)
+    public async Task<List<Status>> GetStatusAsync(CancellationToken cancellationToken = default)
     {
         var response = await _http.GetAsync($"{_baseUri}/leads/pipelines", cancellationToken);
         response.EnsureSuccessStatusCode();

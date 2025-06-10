@@ -2,6 +2,7 @@
 using Kommo_Client;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -10,9 +11,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Kommo_Client.Migrations
 {
     [DbContext(typeof(MarketplaceDb))]
-    partial class MarketplaceDbModelSnapshot : ModelSnapshot
+    [Migration("20250610161443_Order-LeadId-Unique")]
+    partial class OrderLeadIdUnique
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
