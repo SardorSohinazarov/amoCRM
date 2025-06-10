@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using DataTransferObjects.Orders;
+using Kommo_Client.Entities;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Kommo_Client.Controllers
 {
@@ -7,67 +9,70 @@ namespace Kommo_Client.Controllers
     [ApiController]
     public class OrdersController : ControllerBase
     {
-        private readonly IConfiguration _configuration;
-        public OrdersController(IConfiguration configuration)
+        private readonly KommoClient _kommoClient;
+        private readonly MarketplaceDb _dbContext;
+        public OrdersController(IConfiguration configuration, MarketplaceDb dbContext)
         {
-            _configuration = configuration;
+            _kommoClient = new KommoClient(
+                configuration["KommoOptions:UserName"],
+                configuration["KommoOptions:LongLivedToken"]);
+
+            _dbContext = dbContext;
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateAsync(OrderCreationDto orderCreationDto)
+        public async Task<IActionResult> CreateAsync(OrderCreationDto orderCreationDto, CancellationToken cancellationToken)
         {
             if (orderCreationDto == null)
             {
                 return BadRequest("Order creation data is required.");
             }
 
-            var kommoClient = new KommoClient(_configuration["KommoOptions:UserName"], _configuration["KommoOptions:LongLivedToken"]);
-            await kommoClient.AddLeadAsync(
+            var addLeadResponse = await _kommoClient.AddLeadAsync(
                 orderCreationDto.UserName ?? $"Order from {orderCreationDto.PhoneNumber}",
                 orderCreationDto.Amount,
-                null // Assuming no contact ID is provided
+                null, // Assuming no contact ID is provided
+                cancellationToken: cancellationToken
             );
 
             var order = new Order
             {
-                Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), // Simulating an ID
                 PhoneNumber = orderCreationDto.PhoneNumber,
                 UserName = orderCreationDto.UserName,
-                Amount = orderCreationDto.Amount
+                Amount = orderCreationDto.Amount,
+                LeadId = addLeadResponse._embedded.leads.FirstOrDefault()?.id ?? 0 // Assuming the first lead ID is used
             };
+
+            await _dbContext.Orders.AddAsync(order, cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
             var orderViewModel = new OrderViewModel
             {
                 Id = order.Id,
                 PhoneNumber = order.PhoneNumber,
                 UserName = order.UserName,
-                Amount = order.Amount
+                Amount = order.Amount,
+                LeadId = order.LeadId
             };
 
-            return CreatedAtAction(nameof(CreateAsync), new { id = order.Id }, orderViewModel);
+            return Ok(orderViewModel);
         }
-    }
 
-    public class Order
-    {
-        public long Id { get; set; }
-        public string PhoneNumber { get; set; }
-        public string UserName { get; set; }
-        public decimal Amount { get; set; }
-    }
+        [HttpGet]
+        public async Task<IActionResult> GetAllAsync(CancellationToken cancellationToken)
+        {
+            var orders = await _dbContext.Orders
+                .Select(o => new OrderViewModel
+                {
+                    Id = o.Id,
+                    PhoneNumber = o.PhoneNumber,
+                    UserName = o.UserName,
+                    Amount = o.Amount,
+                    LeadId = o.LeadId
+                })
+                .ToListAsync(cancellationToken);
 
-    public class OrderCreationDto
-    {
-        public string PhoneNumber { get; set; }
-        public string UserName { get; set; }
-        public decimal Amount { get; set; }
-    }
-
-    public class OrderViewModel
-    {
-        public long Id { get; set; }
-        public string PhoneNumber { get; set; }
-        public string UserName { get; set; }
-        public decimal Amount { get; set; }
+            return Ok(orders);
+        }
     }
 }

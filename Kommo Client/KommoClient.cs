@@ -34,7 +34,7 @@ namespace Kommo_Client
         /// </summary>
         /// <param name="order">Your domain model describing the order.</param>
         /// <returns>ID of the created lead (order) inside Kommo.</returns>
-        public async Task AddLeadAsync(string name, decimal price, long? contactId = null)
+        public async Task<AddLeadResponse> AddLeadAsync(string name, decimal price, long? contactId = null, CancellationToken cancellationToken = default)
         {
             var leadData = new
             {
@@ -53,11 +53,11 @@ namespace Kommo_Client
             var json = JsonSerializer.Serialize(new[] { leadData });
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _http.PostAsync($"{_baseUri}/leads", content);
+            var response = await _http.PostAsync($"{_baseUri}/leads", content, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var responseContent = await response.Content.ReadAsStringAsync();
-            Console.WriteLine("✅ Lead qo‘shildi: " + responseContent);
+            return JsonSerializer.Deserialize<AddLeadResponse>(responseContent);
         }
 
         public void Dispose() => _http.Dispose();
@@ -127,6 +127,35 @@ namespace Kommo_Client
             [JsonPropertyName("id")]
             public long Id { get; init; }
         }
+    }
+
+    // Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);
+    public class Embedded
+    {
+        public List<Lead> leads { get; set; }
+    }
+
+    public class Lead
+    {
+        public int id { get; set; }
+        public string request_id { get; set; }
+        public Links _links { get; set; }
+    }
+
+    public class Links
+    {
+        public Self self { get; set; }
+    }
+
+    public class AddLeadResponse
+    {
+        public Links _links { get; set; }
+        public Embedded _embedded { get; set; }
+    }
+
+    public class Self
+    {
+        public string href { get; set; }
     }
 
     #endregion
