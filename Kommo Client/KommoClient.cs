@@ -73,14 +73,24 @@ public sealed class KommoClient : IDisposable
         return JsonSerializer.Deserialize<UpdateLeadResponse>(responseContent);
     }
 
+    public async Task<List<Pipeline>> GetPipelinesAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _http.GetAsync($"{_baseUri}/leads/pipelines", cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var getPipelinesResponse = JsonSerializer.Deserialize<GetPipelinesResponse>(responseContent);
+        return getPipelinesResponse._embedded.pipelines.Where(x => x.is_main).ToList();
+    }
+
     public void Dispose() => _http.Dispose();
 }
 
 #region Helper DTOs
-// Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);
 public class Embedded
 {
     public List<Lead> leads { get; set; }
+    public List<Pipeline> pipelines { get; set; }
+    public List<Status> statuses { get; set; }
 }
 
 public class Links
@@ -111,4 +121,38 @@ public class UpdateLeadResponse
     public Links _links { get; set; }
     public Embedded _embedded { get; set; }
 }
+
+public class Pipeline
+{
+    public int id { get; set; }
+    public string name { get; set; }
+    public int sort { get; set; }
+    public bool is_main { get; set; }
+    public bool is_unsorted_on { get; set; }
+    public bool is_archive { get; set; }
+    public int account_id { get; set; }
+    public Links _links { get; set; }
+    public Embedded _embedded { get; set; }
+}
+
+public class GetPipelinesResponse
+{
+    public int _total_items { get; set; }
+    public Links _links { get; set; }
+    public Embedded _embedded { get; set; }
+}
+
+public class Status
+{
+    public int id { get; set; }
+    public string name { get; set; }
+    public int sort { get; set; }
+    public bool is_editable { get; set; }
+    public int pipeline_id { get; set; }
+    public string color { get; set; }
+    public int type { get; set; }
+    public int account_id { get; set; }
+    public Links _links { get; set; }
+}
+
 #endregion

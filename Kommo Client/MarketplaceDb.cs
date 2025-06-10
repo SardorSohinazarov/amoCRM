@@ -15,7 +15,9 @@ namespace Kommo_Client
         {
             base.OnConfiguring(optionsBuilder);
 
-            optionsBuilder.UseSqlServer($"Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog={nameof(MarketplaceDb)};");
+            optionsBuilder.UseNpgsql($"Host=localhost;Port=5432;Database={nameof(MarketplaceDb)};User Id=postgres;Password=Sardor0618!;");
+
+            //optionsBuilder.UseSqlServer($"Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog={nameof(MarketplaceDb)};");
         }
     }
 }

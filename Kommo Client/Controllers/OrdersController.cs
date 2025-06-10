@@ -114,11 +114,20 @@ namespace Kommo_Client.Controllers
                     PhoneNumber = o.PhoneNumber,
                     UserName = o.UserName,
                     Amount = o.Amount,
-                    LeadId = o.LeadId
+                    LeadId = o.LeadId,
+                    Status = o.Status
                 })
                 .ToListAsync(cancellationToken);
 
             return Ok(orders);
+        }
+
+        [HttpGet("pipelines")]
+        public async Task<IActionResult> GetPipelinesAsync(CancellationToken cancellationToken)
+        {
+            var pipelines = await _kommoClient.GetPipelinesAsync(cancellationToken);
+            var statuses = pipelines.Select(x => x._embedded).SelectMany(x => x.statuses);
+            return Ok(statuses);
         }
     }
 }
