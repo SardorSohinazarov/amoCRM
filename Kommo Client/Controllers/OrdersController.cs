@@ -58,6 +58,52 @@ namespace Kommo_Client.Controllers
             return Ok(orderViewModel);
         }
 
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateAsync(long id, OrderModificationDto orderModificationDto, CancellationToken cancellationToken)
+        {
+            var order = await _dbContext.Orders.FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
+            if (order == null)
+            {
+                return NotFound($"Order with ID {id} not found.");
+            }
+            if (orderModificationDto == null)
+            {
+                return BadRequest("Order modification data is required.");
+            }
+            if (!string.IsNullOrWhiteSpace(orderModificationDto.PhoneNumber))
+            {
+                order.PhoneNumber = orderModificationDto.PhoneNumber;
+            }
+            if (!string.IsNullOrWhiteSpace(orderModificationDto.UserName))
+            {
+                order.UserName = orderModificationDto.UserName;
+            }
+            if (orderModificationDto.Amount != default)
+            {
+                order.Amount = orderModificationDto.Amount;
+            }
+
+            _dbContext.Orders.Update(order);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            var updatedLeadResponse = await _kommoClient.UpdateLeadAsync(
+                order.LeadId,
+                orderModificationDto.UserName,
+                orderModificationDto.Amount,
+                cancellationToken: cancellationToken
+            );
+
+            var orderViewModel = new OrderViewModel
+            {
+                Id = order.Id,
+                PhoneNumber = order.PhoneNumber,
+                UserName = order.UserName,
+                Amount = order.Amount,
+                LeadId = order.LeadId
+            };
+            return Ok(orderViewModel);
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetAllAsync(CancellationToken cancellationToken)
         {

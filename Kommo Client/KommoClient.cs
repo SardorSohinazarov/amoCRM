@@ -1,162 +1,114 @@
-﻿using System.Net.Http;
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text;
-using System.Text.Json.Serialization;
 
-namespace Kommo_Client
+namespace Kommo_Client;
+
+public sealed class KommoClient : IDisposable
 {
-    /// <summary>
-    /// Minimal Kommo API client.  
-    ///  – Inject a valid <c>accessToken</c> (Bearer) that you obtained via OAuth2.  
-    ///  – Provide the Kommo <c>subdomain</c> (e.g. "mycompany" for mycompany.kommo.com).  
-    /// </summary>
-    public sealed class KommoClient : IDisposable
-    {
-        private readonly HttpClient _http;
-        private readonly string _baseUri; // e.g. https://subdomain.kommo.com/api/v4
+    private readonly HttpClient _http;
+    private readonly string _baseUri; // e.g. https://subdomain.kommo.com/api/v4
 
-        public KommoClient(string subdomain, string accessToken, HttpClient? httpClient = null)
+    public KommoClient(string subdomain, string accessToken, HttpClient? httpClient = null)
+    {
+        if (string.IsNullOrWhiteSpace(subdomain)) throw new ArgumentException("Subdomain is required", nameof(subdomain));
+        if (string.IsNullOrWhiteSpace(accessToken)) throw new ArgumentException("Access‑token is required", nameof(accessToken));
+
+        _http = httpClient ?? new HttpClient();
+        _baseUri = $"https://{subdomain}.kommo.com/api/v4";
+
+        // Static headers
+        _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+    }
+
+    public async Task<AddLeadResponse> AddLeadAsync(string name, decimal price, long? contactId = null, CancellationToken cancellationToken = default)
+    {
+        var leadData = new
         {
-            if (string.IsNullOrWhiteSpace(subdomain)) throw new ArgumentException("Subdomain is required", nameof(subdomain));
-            if (string.IsNullOrWhiteSpace(accessToken)) throw new ArgumentException("Access‑token is required", nameof(accessToken));
+            name = name,
+            price = price,
+            _embedded = contactId.HasValue
+                ? new { contacts = new[] { new { id = contactId.Value } } }
+                : null
+        };
 
-            _http = httpClient ?? new HttpClient();
-            _baseUri = $"https://{subdomain}.kommo.com/api/v4";
-
-            // Static headers
-            _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        }
-
-        /// <summary>
-        /// Creates a new <strong>Lead</strong> in Kommo that represents an incoming order.
-        /// </summary>
-        /// <param name="order">Your domain model describing the order.</param>
-        /// <returns>ID of the created lead (order) inside Kommo.</returns>
-        public async Task<AddLeadResponse> AddLeadAsync(string name, decimal price, long? contactId = null, CancellationToken cancellationToken = default)
+        var leadsPayload = new
         {
-            var leadData = new
-            {
-                name = name,
-                price = price,
-                _embedded = contactId.HasValue
-                    ? new { contacts = new[] { new { id = contactId.Value } } }
-                    : null
-            };
+            add = new[] { leadData }
+        };
 
-            var leadsPayload = new
-            {
-                add = new[] { leadData }
-            };
+        var json = JsonSerializer.Serialize(new[] { leadData });
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var json = JsonSerializer.Serialize(new[] { leadData });
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = await _http.PostAsync($"{_baseUri}/leads", content, cancellationToken);
+        response.EnsureSuccessStatusCode();
 
-            var response = await _http.PostAsync($"{_baseUri}/leads", content, cancellationToken);
-            response.EnsureSuccessStatusCode();
+        var responseContent = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<AddLeadResponse>(responseContent);
+    }
 
-            var responseContent = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<AddLeadResponse>(responseContent);
-        }
+    public async Task<UpdateLeadResponse> UpdateLeadAsync(long leadId, string? name = null, decimal? price = null, CancellationToken cancellationToken = default)
+    {
+        if (leadId <= 0) throw new ArgumentException("Lead ID must be a positive number", nameof(leadId));
 
-        public void Dispose() => _http.Dispose();
-
-        public async Task<string> GetAccessTokenAsync(string clientId, string clientSecret, string code, string redirectUri, string subdomain)
+        var updateData = new Dictionary<string, object>
         {
-            using var client = new HttpClient();
+            { "id", leadId }
+        };
 
-            var requestBody = new Dictionary<string, string>
-            {
-                { "client_id", clientId },
-                { "client_secret", clientSecret },
-                { "grant_type", "authorization_code" },
-                { "code", code },
-                { "redirect_uri", redirectUri }
-            };
+        if (!string.IsNullOrWhiteSpace(name))
+            updateData["name"] = name;
 
-            var request = new HttpRequestMessage(HttpMethod.Post, $"https://{subdomain}.kommo.com/oauth2/access_token")
-            {
-                Content = new FormUrlEncodedContent(requestBody)
-            };
+        if (price.HasValue)
+            updateData["price"] = price.Value;
 
-            var response = await client.SendAsync(request);
-            response.EnsureSuccessStatusCode();
+        var json = JsonSerializer.Serialize(new[] { updateData });
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var content = await response.Content.ReadAsStringAsync();
-            return content; // JSON ichida: access_token, refresh_token, expires_in, token_type va boshqalar
-        }
+        var response = await _http.PatchAsync($"{_baseUri}/leads", content, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var responseContent = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<UpdateLeadResponse>(responseContent);
     }
 
-    #region Helper DTOs
-
-    public sealed record OrderDto
-    (
-        string? ExternalId,
-        string Name,
-        decimal Amount,
-        long ContactId,
-        long StatusId = 0
-    )
-    {
-        /// <summary>
-        /// Map domain values to Kommo custom fields if you have any.
-        /// </summary>
-        public IEnumerable<object>? ToCustomFields()
-        {
-            //  Example: return new[]
-            //  {
-            //      new { field_id = 123456, values = new[]{ new{ value = ExternalId } } }
-            //  };
-            return null;
-        }
-    }
-
-    internal sealed class CreateLeadResponse
-    {
-        [JsonPropertyName("_embedded")]
-        public LeadWrapper? _embedded { get; init; }
-
-        internal sealed class LeadWrapper
-        {
-            [JsonPropertyName("leads")]
-            public List<Lead>? Leads { get; init; }
-        }
-        internal sealed class Lead
-        {
-            [JsonPropertyName("id")]
-            public long Id { get; init; }
-        }
-    }
-
-    // Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);
-    public class Embedded
-    {
-        public List<Lead> leads { get; set; }
-    }
-
-    public class Lead
-    {
-        public int id { get; set; }
-        public string request_id { get; set; }
-        public Links _links { get; set; }
-    }
-
-    public class Links
-    {
-        public Self self { get; set; }
-    }
-
-    public class AddLeadResponse
-    {
-        public Links _links { get; set; }
-        public Embedded _embedded { get; set; }
-    }
-
-    public class Self
-    {
-        public string href { get; set; }
-    }
-
-    #endregion
+    public void Dispose() => _http.Dispose();
 }
+
+#region Helper DTOs
+// Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);
+public class Embedded
+{
+    public List<Lead> leads { get; set; }
+}
+
+public class Links
+{
+    public Self self { get; set; }
+}
+
+public class AddLeadResponse
+{
+    public Links _links { get; set; }
+    public Embedded _embedded { get; set; }
+}
+
+public class Self
+{
+    public string href { get; set; }
+}
+
+public class Lead
+{
+    public int id { get; set; }
+    public int updated_at { get; set; }
+    public Links _links { get; set; }
+}
+
+public class UpdateLeadResponse
+{
+    public Links _links { get; set; }
+    public Embedded _embedded { get; set; }
+}
+#endregion
