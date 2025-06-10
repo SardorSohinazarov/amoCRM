@@ -28,7 +28,7 @@ namespace Kommo_Client.Controllers
 
             await AddLeadAsync(ParseLeads<Add>(form, "add"), cancellationToken);
             await DeleteLeadAsync(ParseLeads<Delete>(form, "delete"), cancellationToken);
-            //await UpdateLeadAsync(ParseLeads<Update>(form, "update"), cancellationToken);
+            await UpdateLeadAsync(ParseLeads<Update>(form, "update"), cancellationToken);
             //await UpdateStatusAsync(ParseLeads<Status>(form, "status"), cancellationToken);
 
             return Ok();
@@ -70,17 +70,30 @@ namespace Kommo_Client.Controllers
         private async Task UpdateLeadAsync(List<Update> updates, CancellationToken cancellationToken)
         {
             var pipelines = await _kommoClient.GetPipelinesAsync(cancellationToken);
+            Console.WriteLine(JsonSerializer.Serialize(pipelines.Select(x => new {x.id, x.name})));
             foreach (var update in updates)
             {
+                Console.WriteLine(update.status_id);
+
                 var pipeLine = pipelines
-                    .FirstOrDefault(p => p.id == long.Parse(update.pipeline_id));
+                    .FirstOrDefault(p => p.id == long.Parse(update.status_id));
+
+                if(pipeLine is null)
+                    return;
+
+                Console.WriteLine($"Status:{pipeLine.name}");
 
                 var order = await _dbContext.Orders
                     .FirstOrDefaultAsync(l => l.LeadId == long.Parse(update.id), cancellationToken);
 
+                if(order is null)
+                    return;
+
                 if (Enum.TryParse(typeof(EOrderStatus), pipeLine.name, out object newStatus))
                 {
                     order.Status = (EOrderStatus)newStatus;
+
+                    Console.WriteLine($"New Status:{order.Status.ToString()}");
                 }
             }
 
@@ -95,8 +108,7 @@ namespace Kommo_Client.Controllers
                 {
                     LeadId = long.Parse(add.id),
                     Amount = decimal.Parse(add.price),
-                    PhoneNumber = "998912040618",
-                    UserName = "Sardor",
+                    PhoneNumber = add.price,
                     Status = EOrderStatus.New,
                 };
 

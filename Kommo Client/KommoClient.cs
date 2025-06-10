@@ -73,13 +73,14 @@ public sealed class KommoClient : IDisposable
         return JsonSerializer.Deserialize<UpdateLeadResponse>(responseContent);
     }
 
-    public async Task<List<Pipeline>> GetPipelinesAsync(CancellationToken cancellationToken = default)
+    public async Task<List<Status>> GetPipelinesAsync(CancellationToken cancellationToken = default)
     {
         var response = await _http.GetAsync($"{_baseUri}/leads/pipelines", cancellationToken);
         response.EnsureSuccessStatusCode();
         var responseContent = await response.Content.ReadAsStringAsync();
         var getPipelinesResponse = JsonSerializer.Deserialize<GetPipelinesResponse>(responseContent);
-        return getPipelinesResponse._embedded.pipelines.Where(x => x.is_main).ToList();
+        var pipelines = getPipelinesResponse._embedded.pipelines.Where(x => x.is_main).ToList();
+        return pipelines.Select(x => x._embedded).SelectMany(x => x.statuses).ToList();
     }
 
     public void Dispose() => _http.Dispose();

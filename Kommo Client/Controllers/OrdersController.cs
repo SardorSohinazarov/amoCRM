@@ -125,8 +125,7 @@ namespace Kommo_Client.Controllers
         [HttpGet("pipelines")]
         public async Task<IActionResult> GetPipelinesAsync(CancellationToken cancellationToken)
         {
-            var pipelines = await _kommoClient.GetPipelinesAsync(cancellationToken);
-            var statuses = pipelines.Select(x => x._embedded).SelectMany(x => x.statuses);
+            var statuses = await _kommoClient.GetPipelinesAsync(cancellationToken);
             return Ok(statuses);
         }
     }
