@@ -44,40 +44,7 @@ namespace Kommo_Client.Controllers
             }
         }
 
-        private async Task UpdateStatusAsync(List<Status> statuses, CancellationToken cancellationToken)
-        {
-            ////var pipelines = await _kommoClient.GetPipelinesAsync(cancellationToken);
-            //foreach (var status in statuses)
-            //{
-            //    var order = await _dbContext.Orders
-            //        .FirstOrDefaultAsync(l => l.Id == long.Parse(status.id), cancellationToken);
-
-            //    if (Enum.TryParse(typeof(EOrderStatus), status.name, out object newStatus))
-            //    {
-            //        order.Status = (EOrderStatus)newStatus;
-            //    }
-            //}
-
-            //await _dbContext.SaveChangesAsync(cancellationToken);
-        }
-
-        private async Task DeleteLeadAsync(List<Delete> deletes, CancellationToken cancellationToken)
-        {
-            foreach (var delete in deletes)
-            {
-                var order = await _dbContext.Orders
-                    .FirstOrDefaultAsync(l => l.LeadId == long.Parse(delete.id), cancellationToken);
-
-                if (order != null)
-                {
-                    _dbContext.Orders.Remove(order);
-                }
-            }
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-        }
-
-        private async Task UpdateLeadAsync(List<Update> updates, CancellationToken cancellationToken)
+        private async Task UpdateStatusAsync(List<Status> updates, CancellationToken cancellationToken)
         {
             var statuses = await _kommoClient.GetStatusAsync(cancellationToken);
             Console.WriteLine(JsonSerializer.Serialize(statuses.Select(x => new {x.id, x.name})));
@@ -110,6 +77,41 @@ namespace Kommo_Client.Controllers
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
+        private async Task DeleteLeadAsync(List<Delete> deletes, CancellationToken cancellationToken)
+        {
+            foreach (var delete in deletes)
+            {
+                var order = await _dbContext.Orders
+                    .FirstOrDefaultAsync(l => l.LeadId == long.Parse(delete.id), cancellationToken);
+
+                if (order != null)
+                {
+                    _dbContext.Orders.Remove(order);
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        private async Task UpdateLeadAsync(List<Update> updates, CancellationToken cancellationToken)
+        {
+            foreach (var update in updates)
+            {
+                var order = await _dbContext.Orders
+                    .FirstOrDefaultAsync(l => l.LeadId == long.Parse(update.id), cancellationToken);
+                if (order == null)
+                    continue;
+
+                order.PhoneNumber = update.price;
+                order.Amount = decimal.Parse(update.price);
+                order.UserName = update.name;
+
+                _dbContext.Orders.Update(order);
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
         private async Task AddLeadAsync(List<Add> adds, CancellationToken cancellationToken = default)
         {
             foreach (var add in adds)
@@ -119,6 +121,7 @@ namespace Kommo_Client.Controllers
                     LeadId = long.Parse(add.id),
                     Amount = decimal.Parse(add.price),
                     PhoneNumber = add.price,
+                    UserName = add.name,
                     Status = EOrderStatus.New,
                 };
 
@@ -238,7 +241,6 @@ namespace Kommo_Client.Controllers
         public string name { get; set; }
         public string status_id { get; set; }
         public string old_status_id { get; set; }
-        public string price { get; set; }
         public string responsible_user_id { get; set; }
         public string last_modified { get; set; }
         public string modified_user_id { get; set; }
