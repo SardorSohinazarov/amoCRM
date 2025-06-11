@@ -26,30 +26,40 @@ namespace Kommo_Client.Controllers
         {
             var form = await Request.ReadFormAsync(cancellationToken);
 
+            LogForm(form);
+
             await AddLeadAsync(ParseLeads<Add>(form, "add"), cancellationToken);
             await DeleteLeadAsync(ParseLeads<Delete>(form, "delete"), cancellationToken);
             await UpdateLeadAsync(ParseLeads<Update>(form, "update"), cancellationToken);
-            //await UpdateStatusAsync(ParseLeads<Status>(form, "status"), cancellationToken);
+            await UpdateStatusAsync(ParseLeads<Status>(form, "status"), cancellationToken);
 
             return Ok();
         }
 
-        //private async Task UpdateStatusAsync(List<Status> statuses, CancellationToken cancellationToken)
-        //{
-        //    //var pipelines = await _kommoClient.GetPipelinesAsync(cancellationToken);
-        //    foreach (var status in statuses)
-        //    {
-        //        var order = await _dbContext.Orders
-        //            .FirstOrDefaultAsync(l => l.Id == long.Parse(status.id), cancellationToken);
+        private void LogForm(IFormCollection form)
+        {
+            foreach (var key in form.Keys)
+            {
+                Console.WriteLine($"{key}:{form[key]}");
+            }
+        }
 
-        //        if (Enum.TryParse(typeof(EOrderStatus), status.name, out object newStatus))
-        //        {
-        //            order.Status = (EOrderStatus)newStatus;
-        //        }
-        //    }
+        private async Task UpdateStatusAsync(List<Status> statuses, CancellationToken cancellationToken)
+        {
+            ////var pipelines = await _kommoClient.GetPipelinesAsync(cancellationToken);
+            //foreach (var status in statuses)
+            //{
+            //    var order = await _dbContext.Orders
+            //        .FirstOrDefaultAsync(l => l.Id == long.Parse(status.id), cancellationToken);
 
-        //    await _dbContext.SaveChangesAsync(cancellationToken);
-        //}
+            //    if (Enum.TryParse(typeof(EOrderStatus), status.name, out object newStatus))
+            //    {
+            //        order.Status = (EOrderStatus)newStatus;
+            //    }
+            //}
+
+            //await _dbContext.SaveChangesAsync(cancellationToken);
+        }
 
         private async Task DeleteLeadAsync(List<Delete> deletes, CancellationToken cancellationToken)
         {
@@ -126,7 +136,7 @@ namespace Kommo_Client.Controllers
                 .ToList();
 
             var indexes = keys
-                .Select(k => k.Split(new[] { $"leads[{sectionName}][" }, StringSplitOptions.None)[1].Split(']')[0])
+                .Select(k => k.Split($"leads[{sectionName}][", StringSplitOptions.None)[1].Split(']')[0])
                 .Distinct();
 
             foreach (var index in indexes)
